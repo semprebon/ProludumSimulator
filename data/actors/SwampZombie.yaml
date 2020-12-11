@@ -1,0 +1,7 @@
+name: SwampZombie
+level: 2
+armor: 0
+tactics:
+  LightAttack
+actions:
+  - LightAttack
