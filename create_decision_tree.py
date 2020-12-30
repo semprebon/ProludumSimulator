@@ -1,32 +1,26 @@
-import argparse
-import random
+# Use genetic algorithm to develop an effective decision tree for a character
+#
+# TODO: Use multiple scenarios
 
-from genetic_algorithm.genetic_algorithm import GeneticAlgorithm
+import argparse
+
 from simulator.data_loader import load_data
-from simulator.simulator import Simulator
+from training.evolve_tactics import ActorTacticsEvolver
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--iterations", "-i", default="1", help="number of iterations", type=int)
-parser.add_argument("--scenario", "-s", help="scenario file", type=str)
-parser.add_argument("--goodguys", "-g", help="hero files", nargs="*")
-parser.add_argument("--badguys", "-b", help="villain files", nargs="*")
+parser.add_argument("--gauntlet", "-g", default="gauntlet", help="guantlet file", type=str)
+parser.add_argument("--hero", "-z", default="Brutus", help="hero name", type=str)
+parser.add_argument("--scenarios", "-s", help="scenario files", nargs="*")
 
 args = parser.parse_args()
 iterations = args.iterations
 
-if args.scenario:
-    scenario = load_data(args.scenario, directory="data/scenarios")[0]
-    heroes = load_data(scenario["heroes"], directory="data/actors")
-    villains = load_data(scenario["villains"], directory="data/actors")
+if args.scenarios:
+     scenario_files = load_data(args.scenarios, directory="data/scenarios")
 else:
-    heroes = load_data(args.goodguys, directory="data/actors")
-    villains = load_data(args.badguys, directory="data/actors")
-
-ga = GeneticAlgorithm(
-    generator=lambda: (random.uniform(min_value, max_value), random.uniform(min_value, max_value)),
-    mixer=lambda p1, p2: ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2),
-    mutator=lambda p: (self.limit(p[0] + random.uniform(-0.05, 0.05)),
-                       self.limit(p[1] + random.uniform(-0.05, 0.05))),
-    fitness=fitness
-
-)
+    scenario_files = load_data(args.gauntlet, directory="data/scenarios")[0]
+subject = args.hero
+evolver = ActorTacticsEvolver(subject, scenario_files)
+hof = evolver.run()
+print("winning tactics are:\n" + '\n'.join([ f"{t.fitness} {t}" for t in hof ]))
