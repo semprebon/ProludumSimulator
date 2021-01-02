@@ -4,13 +4,11 @@ from simulator.actor import Actor
 from simulator.data_loader import load_data
 from simulator.decision_state import DecisionState
 from simulator.simulator import Simulator
-from simulator.weapons import Knife
 
-
-class TestDecisionState(unittest.TestCase):
+class TestActor(unittest.TestCase):
 
     simulator = Simulator("brutus_vs_goblins")
-    actor = simulator.combatant_by_name('Goblin')
+    actor = simulator.combatant_by_name('Goblin Warrior')
 
     def set_message_and_return(self, message, value):
         self.messages.append(message)
@@ -18,9 +16,7 @@ class TestDecisionState(unittest.TestCase):
 
     def test_can_run_parsed_tactics(self):
         simulator = Simulator("brutus_vs_goblins")
-        actor = Actor(load_data('brutus', directory='data/actors')[0], 'Heroes', simulator)
-        decision_state = DecisionState(self.actor)
+        actor = Actor(load_data('Brutus', directory='data/actors')[0], 'Heroes', simulator)
+        decision_state = DecisionState(actor)
         decision_state.take_turn()
-        assert "melee_thrust" in [ action.__name__ for action in decision_state.actions() ]
-
-        self.messages = []
+        # TODO: Doesn't really test anything

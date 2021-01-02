@@ -1,6 +1,7 @@
 import unittest
 
 from simulator import weapons
+from simulator.actions_mixin import attack_defaults
 from simulator.actor import Actor
 from simulator.data_loader import load_data
 from simulator.decision_state import DecisionState
@@ -22,22 +23,22 @@ class TestDecisionState(unittest.TestCase):
 
     def test_item_action_included_in_actions(self):
         decision_state = DecisionState(self.actor)
-        assert "thrust_attack" in [ action.__name__ for action in decision_state.actions() ]
-
-        self.messages = []
+        assert "thrust_attack" in decision_state.actions()
+        assert "swing_attack" not in decision_state.actions()
 
     def test_action_property_overrides(self):
+        self.actor.foe = Actor({ 'name': 'Kobold', 'level': 1, 'vitality': 1, 'weapons': [] , 'tactics': 'thrust_attack'},
+                  'Villains', None)
         decision_state = DecisionState(self.actor)
-        decision_state.add_action("swing_attack",
-                                  { 'difficulty': lambda ds: self.set_message_and_return("difficulty_called", 3)})
+        decision_state._action_properties["thrust_attack"]['vantage'] = lambda ds: self.set_message_and_return("vantage_modified", 3)
 
         self.messages = []
-        decision_state.swing_attack()
-        self.assertEqual("difficulty_called", self.messages[0])
+        decision_state.thrust_attack()
+        self.assertEqual("vantage_modified", self.messages[0])
 
     def test_standard_actions_included_in_actions(self):
         decision_state = DecisionState(self.actor)
-        assert "retreat" in [ action.__name__ for action in decision_state.actions() ]
+        assert "retreat" in decision_state.actions()
 
     def test_observations_included(self):
         decision_state = DecisionState(self.actor)
@@ -48,7 +49,7 @@ class TestDecisionState(unittest.TestCase):
         actor = simulator.combatant_by_name('Brutus')
         decision_state = DecisionState(actor)
         decision_state.add_action("thrust_attack",
-                                  { 'difficulty': lambda ds: self.set_message_and_return("ran", 3)})
+                                  { **attack_defaults(), **{ 'vantage': lambda ds: self.set_message_and_return("ran", 3)} })
         decision_state.set_tactics("thrust_attack")
 
         self.messages = []

@@ -1,0 +1,7 @@
+# Ranged
+name: Goblin Archer
+level: 1
+armor: 0
+weapons: [Longbow]
+tactics:
+  if_foe_nearby(retreat, if_prepared_for_foe(ranged_attack, prepare))

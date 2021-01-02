@@ -1,0 +1,9 @@
+# Skirmisher/Swashbuckler
+name: Flynn
+level: 3
+armor: 0
+weapons: [Saber]
+tactics:
+  thrust_attack
+  #basic_attack
+  #if_staggered(basic_attack, defensive_attack)

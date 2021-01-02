@@ -1,0 +1,7 @@
+# A basic low-threat melee mob creature
+name: Goblin Warrior
+level: 1
+armor: 0
+weapons: [Knife]
+tactics:
+  if_foe_nearby(thrust_attack, approach)

@@ -1,85 +1,177 @@
-from simulator import conditions
-from simulator.conditions import Condition
-from simulator.actions import *
+import sys
+
+from simulator.decision_state import DecisionState
+from simulator import condition
 from simulator.dice import DicePool
 from simulator.text import bcolors
 import logging
 
 class Actor:
-    def __init__(self, data, faction):
-        self.data = data
-        self.faction = faction
-        self.health = data['level']
-        self.conditions = {}
-        self.active = 0
-        self.reactive = 0
+    named_data = {}
 
-    def has_condition(self, name, target=None):
-        return self.conditions.get(conditions.key(name, target)) != None
+    def __init__(self, data, faction, simulator):
+        from simulator.weapons import ITEMS
+        self.data = data
+        self.active_items = [ ITEMS[name] for name in data['weapons'] ]
+        self.faction = faction
+        self.simulator = simulator
+        self.tactics_code = self.parse_tactics(data['tactics']) if 'tactics' in data else None
+        self.reset()
+
+    def parse_tactics(self, str):
+        import re
+        return compile(re.sub(r'(\w+)', r'self.\1', str), 'tactics', "eval")
+
+    def set_decision_state_class(self):
+        self.decision_state_class = DecisionState
+
+    def decision_state(self):
+        return self.decision_state_class(self)
+
+    # def add_mixins(self):
+    #     from simulator.observations_mixin import ObservationMixin
+    #     from simulator.addon_effects import AddonEffects
+    #
+    #     """ add in mixin classes from character data and observations, and add each mixin's
+    #         methods to list of actions/observations actor can take"""
+    #     def is_mix_method(cls, method_name):
+    #         return callable(getattr(cls, method_name)) and not method_name.startswith("__")
+    #
+    #     import inspect
+    #
+    #     names = self.data['weapons']
+    #     action_mixins = [ p[1] for p in inspect.getmembers(sys.modules["simulator.weapons"]) if p[0] in names ]
+    #
+    #     self.__class__ = type(self.name()+"Expanded",
+    #                           tuple(action_mixins + [ObservationMixin, AddonEffects, self.__class__]), {})
+    #     self.actions = [ getattr(self, name)
+    #                 for mixin in action_mixins for name in dir(mixin) if is_mix_method(mixin, name) ]
+    #     self.observations = [ getattr(self, name)
+    #                 for name in dir(ObservationMixin) if is_mix_method(ObservationMixin, name) ]
+
+    def reset(self):
+        self.health = self.data['level']
+        self.conditions = {}
+        self.foe = None
+        self.position = self.simulator.faction_position(self.faction) if self.simulator else 0
+
+    def suffix_name(self, count):
+        self.data['name'] = f'{self.data["name"]}{count}'
+
+    def has_condition(self, cond, target=None):
+        return self.conditions.get(condition.key(cond.name, target)) != None
 
     def add_condition(self, condition):
         existing_condition = self.conditions.get(condition.key())
-        if existing_condition == None or existing_condition.severity < condition.severity:
+        if existing_condition == None:
             self.conditions[condition.key()] = condition
 
+    def recover_from_condition(self):
+        key = next((key for key, cond in self.conditions.items() if cond.condition.duration == ConditionType.RECOVERABLE), None)
+        if key:
+            del self.conditions[key]
+        return key
+
     def recover_from_fleeting_conditions(self):
-        print(f"conditions: {list(self.conditions.keys())}")
-        self.conditions = { key: cond for key, cond in self.conditions.items() if cond.severity > Condition.FLEETING }
+        #print(f"conditions: {list(self.conditions.keys())}")
+        self.conditions = { key: cond for key, cond in self.conditions.items() if cond.severity > ConditionType.FLEETING }
+
+    def add_active_item(self, item):
+        self.active_items.append(item)
+
+    def use_addon_effect(self, action_points, effect, schedule):
+        cost = schedule.get(effect, None)
+        if cost and cost <= action_points:
+            if effect(self.foe):
+                return action_points - cost
+        return action_points
 
     def name(self):
         return f"{self.data['name']}"
 
     def take_turn(self, others):
         roll = DicePool(self.data['level']).roll()
-        action = self.pick_action(roll, others)
-        print(f"{action.describe()}")
-        action.resolve()
+        self.take_action(roll, others)
         self.recover_from_fleeting_conditions()
 
-    def pick_foe(self, foes):
-        import random
-        if len(foes) == 0:
-            return None
-        else:
-            return random.choice(foes)
+    # TODO: Complete this abbreviated action generator
+    # def implement_action(self, roll=None, roll_mod=None, foe_roll_mod=None,
+    #                      success_mod=None, foe_success_mod=None, threshold=2, minor_effect=None, major_effect=None,
+    #                      enhancement_bonus=None, enhancements={ }):
+    #
+    #     successes = roll(self.foe)
+    #
+    #     successes = self.attack_roll(self.foe) + 1 if self.has_condition(Condition.AIM_AT, self.foe) else 0
+    #     action_points = self.apply_effect(successes, threshold=2,
+    #             minor_effect=actor.apply_condition(self.foe, Condition.HINDERED),
+    #             major_effect=wound_foe(self.foe))
+    #     self.allocate_action_points(action_points, { self.escalate_condition: 2, self.recover: 1 })
+    #
+    # def normalize_action_conditions(self, conds):
+    #     if conds == None:
+    #         conds = []
+    #     if not isinstance(conds, list):
+    #         conds = [conds]
+    #     modifier = 0
+    #     for cond in conds:
+    #         return sum([ 1 if self.has_condition(conds) or self.has_condition(conds, self.foe) else 0 for c in conds])
+
+
+    def skill_roll(self, vantage):
+        self.roll = DicePool(self.health + vantage).roll()
+        return self.roll
+
+    def foes(self):
+        return [c for c in self.simulator.combatants if c.faction != self.faction]
+
+    # General actions
+    def wait(self):
+        pass
+
+    def move_towards(self, target, distance=1):
+        if target:
+            dir = 1 if target.position > self.position else -1
+            len = min(abs(target.position - self.position), distance)
+            self.position = self.position + dir*len
+            return True
+        return False
+
+    def move_towards_foe(self):
+        return self.move_towards(self.foe)
+
+    def move_away(self, target, distance=1):
+        if target:
+            dir = 1 if self.position > target.position else -1
+            self.position = self.position + dir*distance
+            return True
+        return False
+
+    def move_away_from_foe(self):
+        return self.move_away(self.foe)
 
     def takes_damage(self, damage):
+        #print(f"{self.name()} takes {damage}! Health {self.health} -> {self.health-damage}")
         self.health = self.health - damage
 
     def defense(self):
         defense = self.data["armor"]
-        if self.has_condition("staggerd"):
+        if self.has_condition("staggered"):
             defense = defense - 1
         return defense
 
-    def extract_situation(self, foes):
-        situation = {}
-        situation["staggered"] = self.has_condition("staggered")
-        situation["attack_advantage"] = any([ foe.has_condition("staggered") for foe in foes]) and not self.has_condition("hindered")
-        situation["multiple_attackers"] = len(foes) > 1
-        return situation
-
-    def pick_action(self, roll, others):
-        foes = [c for c in others if c.faction != self.faction]
-        situation = self.extract_situation(foes)
-        # node = self.data["tactics"]
-        # while isinstance(node, dict):
-        #     if situation[node["tag"]]:
-        #         node = node[True]
-        #     else:
-        #         node = node[False]
-        # print(f"action={node}")
-        logging.info(f"pick_action: {self.name()};{situation}")
-        import random
-        node = random.choice(self.data["actions"])
-
-        foe = self.pick_foe(foes)
-        if foe == None:
-            return Wait(self)
-        else:
-            action = by_name(node)
-        return action(self, foe)
+    def pick_action(self):
+        return self.basic_attack if self.tactics == None else eval(self.tactics)
 
     def describe(self):
-        print(f"{bcolors.OKBLUE}{self.name()}{bcolors.ENDC}: health: {self.health}  conditions: {list(self.conditions.keys())}")
+        return (f"{bcolors.OKBLUE}{self.name()}{bcolors.ENDC}(health={self.health},pos={self.position},conditions={list(self.conditions.keys())})")
+
+    def extract_data_hash(self):
+        cond_str = ','.join([ str(v) for k,v in self.conditions.items() ])
+        return { 'health': self.health, 'position': self.position, 'cond': cond_str }
+
+    def opponents(self):
+        return self.simulator.foes_of(self)
+
+    def if_foe_and(self, cond, true, false):
+        return true if self.foe and cond() else false
 

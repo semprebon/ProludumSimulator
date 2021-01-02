@@ -21,8 +21,8 @@ class EvolvingDecisionState(DecisionState):
         return self.evaluate_tactics
 
     def execute_action(self):
-        self.tactics_code()
-        return str(self.individual)
+        success = self.tactics_code()
+        return (str(self.individual), success)
 
 class EvolverSimulator(Simulator):
     """This is a version of Simulator that gets sets the decision state tactics for the

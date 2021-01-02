@@ -1,0 +1,10 @@
+# Single hero vs melee mob
+name: "Team of 2 Heroes vs 5 Goblins"
+positions:
+  heroes: 0
+  villains: 1
+heroes:
+  - Brutus
+  - Archie
+villains:
+  - Ogre

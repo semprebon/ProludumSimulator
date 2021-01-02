@@ -1,0 +1,26 @@
+name: Fido
+level: 1
+armor: 0
+weapons: [Bite]
+tactics:
+  BasicAttack
+#  staggered:
+#    True:
+#      multiple_attackers:
+#        True: Defend
+#        False: DefensiveAttack
+#    False: BasicAttack
+
+actions:
+  - DefensiveAttack
+#  - Defend
+#  - Wait
+#  - DefensiveAttack
+# tag: "staggered"
+  #  True:
+  #    tag: "multiple_attackers"
+  #    True: "DefensiveAttack"
+  #    False: "Defend"
+  #  False: "BasicAttack"
+  # if Staggerd then
+  #-   else if D

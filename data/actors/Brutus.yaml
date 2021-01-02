@@ -1,31 +1,9 @@
+# Tank Build
 name: Brutus
 level: 3
-armor: 2
+armor: 0
+weapons: [LongSword, Shield]
 tactics:
-  tag: "staggered"
-  True:
-    tag: "multiple_attackers"
-    True: "DefensiveAttack"
-    False: "Defend"
-  False: "BasicAttack"
-
-  staggered:
-    - multiple_attackers:
-      - Defend
-      - DefensiveAttack
-    - BasicAttack
-
-  { staggard: [{ multiple_attackers: []}, BasicAttack] }
-actions:
-  - BasicAttack
-  - Defend
-  - Wait
-  - DefensiveAttack
-# tag: "staggered"
-  #  True:
-  #    tag: "multiple_attackers"
-  #    True: "DefensiveAttack"
-  #    False: "Defend"
-  #  False: "BasicAttack"
-  # if Staggerd then
-  #-   else if D
+  #if_hindered(defensive_attack, swing_attack)
+  #if_multiple_attackers(retreat, basic_attack)
+  if_foe_nearby(thrust_attack,approach)

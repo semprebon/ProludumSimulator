@@ -1,0 +1,8 @@
+# A basic high-threat melee mob creature
+name: Ogre
+level: 3
+vitality: 1
+armor: 1
+weapons: [HeavyMaul]
+tactics:
+  if_foe_nearby(if_prepared_for_foe(swing_attack,prepare), approach)
