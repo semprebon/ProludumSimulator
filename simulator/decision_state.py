@@ -22,6 +22,7 @@ class DecisionState(ObservationsMixin, ActionsMixin):
         self.create_standard_actions(STANDARD_ACTIONS)
         self.create_actions_for_items(actor.active_items)
         self.create_observations()
+        self.additional_attacks = 0
 
     def actions(self):
         return self._actions
@@ -169,12 +170,14 @@ class DecisionState(ObservationsMixin, ActionsMixin):
                 self.foe = random.choice(foes)
         return self.foe
 
-    def execute_action(self):
+    def execute_action(self, args = {}):
+        self.current_action_state = args
         action = eval(self.tactics_code)
         success = action()
         return (action.__name__, success)
 
     def take_turn(self):
+        self.additional_attacks = 0
         if self.foe == None or self.foe.health == 0:
             self.actor.foe = self.pick_foe()
             self.foe = self.actor.foe
@@ -201,5 +204,8 @@ class DecisionState(ObservationsMixin, ActionsMixin):
         self.tactics_code = code
 
     def additional_attack(self):
-        print("additional attack not implemented")
+        self.additional_attacks += 1
+
+        if (self.additional_attacks <= 2):
+            self.execute_action()
 
