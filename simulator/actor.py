@@ -1,5 +1,6 @@
 import sys
 
+from simulator.condition import ConditionType, FLEETING, RECOVERABLE
 from simulator.decision_state import DecisionState
 from simulator import condition
 from simulator.dice import DicePool
@@ -7,15 +8,18 @@ from simulator.text import bcolors
 import logging
 
 class Actor:
-    named_data = {}
+    DEFAULT_DATA = { 'name': 'None', 'level': 3, 'armor': 0, 'vitality': 0,
+                     'speed': 6, 'weapons': [], 'tactics': "wait", 'position': 0 }
 
     def __init__(self, data, faction, simulator):
         from simulator.weapons import ITEMS
-        self.data = data
-        self.active_items = [ ITEMS[name] for name in data['weapons'] ]
+        self.data = { **self.DEFAULT_DATA, **data }
+        self.active_items = [ ITEMS[name] for name in self.data['weapons'] ]
         self.faction = faction
         self.simulator = simulator
-        self.tactics_code = self.parse_tactics(data['tactics']) if 'tactics' in data else None
+        self.tactics_code = self.parse_tactics(self.data['tactics'])
+        self.averages = {}
+        self.dice_pool_class = DicePool
         self.reset()
 
     def parse_tactics(self, str):
@@ -51,30 +55,38 @@ class Actor:
 
     def reset(self):
         self.health = self.data['level']
+        self.vitality = self.data['vitality']
         self.conditions = {}
         self.foe = None
-        self.position = self.simulator.faction_position(self.faction) if self.simulator else 0
+        self.position = self.simulator.faction_position(self.faction) or self.data['position']
 
     def suffix_name(self, count):
         self.data['name'] = f'{self.data["name"]}{count}'
 
     def has_condition(self, cond, target=None):
-        return self.conditions.get(condition.key(cond.name, target)) != None
+        return self.conditions.get(condition.key(cond.name, target), None) != None
 
     def add_condition(self, condition):
         existing_condition = self.conditions.get(condition.key())
         if existing_condition == None:
             self.conditions[condition.key()] = condition
 
+    def expiring_conditions(self):
+        return [ cond for key, cond in self.conditions.items() if cond.duration() == condition.FLEETING ]
+
     def recover_from_condition(self):
-        key = next((key for key, cond in self.conditions.items() if cond.condition.duration == ConditionType.RECOVERABLE), None)
-        if key:
-            del self.conditions[key]
-        return key
+        keys = [ key for key, cond in self.conditions.items() if cond.duration() == RECOVERABLE ]
+        if len(keys) > 0:
+            del self.conditions[keys[0]]
+            return keys[0]
+        return None
+
+    def expire_conditions(self, conditions):
+        self.conditions = { key: cond for key, cond in self.conditions.items() if cond not in conditions }
 
     def recover_from_fleeting_conditions(self):
         #print(f"conditions: {list(self.conditions.keys())}")
-        self.conditions = { key: cond for key, cond in self.conditions.items() if cond.severity > ConditionType.FLEETING }
+        self.conditions = { key: cond for key, cond in self.conditions.items() if not cond.check_expired() }
 
     def add_active_item(self, item):
         self.active_items.append(item)
@@ -90,7 +102,7 @@ class Actor:
         return f"{self.data['name']}"
 
     def take_turn(self, others):
-        roll = DicePool(self.data['level']).roll()
+        roll = self.dice_pool_class(self.data['level']).roll()
         self.take_action(roll, others)
         self.recover_from_fleeting_conditions()
 
@@ -118,7 +130,8 @@ class Actor:
 
 
     def skill_roll(self, vantage):
-        self.roll = DicePool(self.health + vantage).roll()
+        self.roll = self.dice_pool_class(self.health + vantage).roll()
+        #print(f"{self.name()} rolls {self.roll} on {self.health + vantage} dice")
         return self.roll
 
     def foes(self):
@@ -126,9 +139,10 @@ class Actor:
 
     # General actions
     def wait(self):
-        pass
+        return True
 
-    def move_towards(self, target, distance=1):
+    def move_towards(self, target, distance=None):
+        distance = distance if distance else self.speed()
         if target:
             dir = 1 if target.position > self.position else -1
             len = min(abs(target.position - self.position), distance)
@@ -139,7 +153,8 @@ class Actor:
     def move_towards_foe(self):
         return self.move_towards(self.foe)
 
-    def move_away(self, target, distance=1):
+    def move_away(self, target, distance=None):
+        distance = distance if distance else self.speed()
         if target:
             dir = 1 if self.position > target.position else -1
             self.position = self.position + dir*distance
@@ -151,7 +166,15 @@ class Actor:
 
     def takes_damage(self, damage):
         #print(f"{self.name()} takes {damage}! Health {self.health} -> {self.health-damage}")
-        self.health = self.health - damage
+        if self.health == 0:
+            return False
+
+        if self.vitality > 0:
+            reduction = min(self.vitality, damage)
+            damage -= reduction
+            self.vitality -= reduction
+        self.health = max(self.health - damage, 0)
+        return True
 
     def defense(self):
         defense = self.data["armor"]
@@ -159,15 +182,29 @@ class Actor:
             defense = defense - 1
         return defense
 
+    def distance_to(self, other):
+        return abs(other.position - self.position)
+
+    def distance_to_foe(self):
+        return self.distance_to(self.foe)
+
+    def speed(self):
+        return self.data['speed']
+
     def pick_action(self):
         return self.basic_attack if self.tactics == None else eval(self.tactics)
+
+    def attack_range(self):
+        if len(self.active_items) == 0 or len(self.active_items[0].actions) == 0:
+            return range(-1,-1)
+        return self.active_items[0].actions[0]['range']
 
     def describe(self):
         return (f"{bcolors.OKBLUE}{self.name()}{bcolors.ENDC}(health={self.health},pos={self.position},conditions={list(self.conditions.keys())})")
 
     def extract_data_hash(self):
         cond_str = ','.join([ str(v) for k,v in self.conditions.items() ])
-        return { 'health': self.health, 'position': self.position, 'cond': cond_str }
+        return { 'health': self.health, 'vitality': self.vitality, 'position': self.position, 'cond': cond_str }
 
     def opponents(self):
         return self.simulator.foes_of(self)
@@ -175,3 +212,10 @@ class Actor:
     def if_foe_and(self, cond, true, false):
         return true if self.foe and cond() else false
 
+    def track_average(self, label, amount):
+        (count, sum) = self.averages.get(label, (0,0))
+        self.averages[label] = (count+1, sum+amount)
+
+    def average(self, label):
+        (count, sum) = self.averages.get(label, (0,0))
+        return float(sum)/float(count) if count > 0 else None

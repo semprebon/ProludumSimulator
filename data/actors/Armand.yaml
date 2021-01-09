@@ -1,0 +1,11 @@
+# Tank Build
+name: Armand
+level: 3
+armor: 1
+vitality: 0
+weapons: [LongSword, Shield]
+tactics:
+  #if_hindered(defensive_attack, swing_attack)
+  #if_multiple_attackers(retreat, basic_attack)
+  swing_attack
+  #if_multiple_attackers(retreat, swing_attack)

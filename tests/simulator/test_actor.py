@@ -1,22 +1,46 @@
 import unittest
+from unittest.mock import Mock
 
 from simulator.actor import Actor
-from simulator.data_loader import load_data
-from simulator.decision_state import DecisionState
-from simulator.simulator import Simulator
 
-class TestActor(unittest.TestCase):
+class TestTakesDamage(unittest.TestCase):
 
-    simulator = Simulator("brutus_vs_goblins")
-    actor = simulator.combatant_by_name('Goblin Warrior')
+    def setUp(self):
+        self.simulator = Mock()
 
-    def set_message_and_return(self, message, value):
-        self.messages.append(message)
-        return value
+    def test_damage_with_no_vitality(self):
+        actor = Actor({ 'vitality': 0, 'health': 3 }, 'Heroes', self.simulator)
+        actor.takes_damage(1)
+        self.assertEqual(2, actor.health)
+        self.assertEqual(0, actor.vitality)
 
-    def test_can_run_parsed_tactics(self):
-        simulator = Simulator("brutus_vs_goblins")
-        actor = Actor(load_data('Brutus', directory='data/actors')[0], 'Heroes', simulator)
-        decision_state = DecisionState(actor)
-        decision_state.take_turn()
-        # TODO: Doesn't really test anything
+    def test_damage_with_some_vitality(self):
+        actor = Actor({ 'vitality': 1, 'health': 3 }, 'Heroes', self.simulator)
+        actor.takes_damage(2)
+        self.assertEqual(2, actor.health)
+        self.assertEqual(0, actor.vitality)
+
+    def test_damage_with_lots_of_vitality(self):
+        actor = Actor({ 'vitality': 3, 'health': 3 }, 'Heroes', self.simulator)
+        actor.takes_damage(2)
+        self.assertEqual(3, actor.health)
+        self.assertEqual(1, actor.vitality)
+
+    def test_damage_overkill(self):
+        actor = Actor({ 'vitality': 0, 'health': 3 }, 'Heroes', self.simulator)
+        actor.takes_damage(4)
+        self.assertEqual(0, actor.health)
+        self.assertEqual(0, actor.vitality)
+
+class TestTrackAverage(unittest.TestCase):
+
+    def test_no_data(self):
+        actor = Actor({}, 'Heroes', Mock())
+        self.assertEqual(None, actor.average("roll"))
+
+    def test_with_data(self):
+        actor = Actor({}, 'Heroes', Mock())
+        actor.track_average('roll', 1)
+        actor.track_average('roll', 2)
+        self.assertEqual(1.5, actor.average("roll"))
+

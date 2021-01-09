@@ -1,4 +1,7 @@
 name: "Brutus vs Zombies"
+positions:
+  heroes: 0
+  villains: 6
 heroes:
   - Brutus
 villains:

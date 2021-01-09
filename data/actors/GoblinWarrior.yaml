@@ -2,6 +2,7 @@
 name: Goblin Warrior
 level: 1
 armor: 0
-weapons: [Knife]
+weapons: [Club]
+speed: 5
 tactics:
-  if_foe_nearby(thrust_attack, approach)
+  if_foe_in_move_range(swing_attack, approach)

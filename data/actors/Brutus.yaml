@@ -1,9 +1,11 @@
-# Tank Build
+# Heavy Melee Build
 name: Brutus
 level: 3
 armor: 0
-weapons: [LongSword, Shield]
+vitality: 0
+weapons: [HeavyMaul]
 tactics:
-  #if_hindered(defensive_attack, swing_attack)
-  #if_multiple_attackers(retreat, basic_attack)
-  if_foe_nearby(thrust_attack,approach)
+  swing_attack # 0.92
+  #if_prepared_for_foe(swing_attack,if_foe_adjacent(swing_attack, prepare))
+  #if_multiple_attackers(if_foe_defending(approach, swing_attack), if_prepared_for_foe(recover, swing_attack)) #0.93
+  #if_multiple_attackers(swing_attack, if_prepared_for_foe(swing_attack,prepare))

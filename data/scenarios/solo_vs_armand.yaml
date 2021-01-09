@@ -1,0 +1,9 @@
+# Single character vs archers, 1 movement away
+name: "Solo vs Armand"
+positions:
+  heroes: 0
+  villains: 6
+heroes:
+  - Brutus
+villains:
+  - Armand

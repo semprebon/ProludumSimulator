@@ -56,8 +56,21 @@ class ObservationsMixin:
     def if_has_melee_weapon(self, a, b):
         return a if self.has_melee_attack() else b
 
-    def if_foe_nearby(self, a, b):
+    def if_foe_adjacent(self, a, b):
         if self.foe:
-            return a if self.actor.position == self.foe.position else b
+            return a if self.actor.distance_to_foe() <= 1 else b
         else:
             return b
+
+    def if_foe_in_move_range(self, a, b):
+        if self.foe:
+            return a if self.actor.distance_to_foe() <= self.actor.speed() else b
+        else:
+            return b
+
+    def if_foe_in_attack_range(self, a, b):
+        if self.foe:
+            return a if self.actor.distance_to_foe() in self.actor.attack_range() else b
+        else:
+            return b
+

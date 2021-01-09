@@ -1,0 +1,13 @@
+# Single hero vs melee mob
+# 12/15/2020 Heroes win 60%
+name: "Solo vs Goblins"
+positions:
+  heroes: 0
+  villains: 6
+heroes:
+  - Brutus
+villains:
+  - GoblinWarrior
+#  - GoblinWarrior
+#  - GoblinWarrior
+  - GoblinArcher

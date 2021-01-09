@@ -6,7 +6,7 @@ from simulator.actions_mixin import *
 from simulator.condition import Condition, ConditionType
 
 Balanced = { 'enhancements': {} }
-Attack = attack_defaults()
+Attack = ATTACK_DEFAULTS
 Melee = { 'range': range(1,2) }
 ThrowRange = { 'range': range(2,4) }
 LongRange = { 'range': range(2,61) }
@@ -18,7 +18,7 @@ Crushing = { 'minor_effect': apply_condition_to_foe_effect(ConditionType.STAGGER
 
 # Preparation effected
 AimBonus = { 'vantage': actor_condition_modifier(ConditionType.PREPARED_FOR, 1) }
-WindupBonus = { 'success': actor_condition_modifier(ConditionType.PREPARED_FOR, 1) }
+WindupBonus = { 'success': actor_condition_modifier(ConditionType.PREPARED_FOR, 3) }
 AdditionalAttack = { 'enhancements': { lambda ds: ds.additional_attack(): 1 } }
 
 class Item:
@@ -47,6 +47,8 @@ ITEMS = {
     'HeavyMaul': Item(
         Item.define_action("swing_attack", [Attack, Melee, Crushing, WindupBonus]),
         Item.define_action("prepare")),
+    'Club': Item(
+        Item.define_action("swing_attack", [Attack, Melee, Crushing, WindupBonus])),
     'ShortSword': Item(
         Item.define_action("thrust_attack", [Attack, Melee, Impaling, AdditionalAttack]),
         Item.define_action("swing_attack", [Attack, Melee, Cutting, AdditionalAttack])),

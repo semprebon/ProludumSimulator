@@ -28,6 +28,13 @@ class Simulator:
         self.round = 0
         self.options = options
 
+    def replace_combatant(self, name, data):
+        index = next((i for i, a in self.combatants if a.name() == name), None)
+        if index:
+            self.combatants[index] = self.instantiate_actor(data, self.combatants.faction)
+        else:
+            raise ValueError(f"actor not found {name}")
+
     def instantiate_actor(self, data, faction):
         if isinstance(data, str):
             data = load_data(data, directory="data/actors")[0]
@@ -43,21 +50,20 @@ class Simulator:
         return DecisionState(combatant)
 
     def run_turn(self, combatant):
-        if combatant.health <= 0:
-            #print(f"{combatant.name()} is dead")
-            self.combatants.remove(combatant)
-        else:
+        if combatant.health > 0:
             state = self.decision_state_for(combatant)
             state.take_turn()
 
     def run_round(self):
+        healths = { a.name(): a.health for a in self.combatants }
         for c in self.combatants:
             self.run_turn(c)
 
     def factions(self):
         factions = {}
         for actor in self.combatants:
-            factions[actor.faction] = factions.get(actor, []).append(actor)
+            if actor.health > 0:
+                factions[actor.faction] = factions.get(actor, []).append(actor)
         return factions
 
     def foes_of(self, actor):
@@ -67,7 +73,7 @@ class Simulator:
         return next(a for a in self.combatants if a.name() == name)
 
     def faction_position(self, faction):
-        return self.scenario.get('positions', {}).get(faction, 0)
+        return self.scenario.get('positions', {}).get(faction, None)
 
     def winner(self):
         return list(self.factions())[0] if len(self.factions()) == 1 else None

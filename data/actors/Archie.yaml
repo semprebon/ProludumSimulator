@@ -2,6 +2,8 @@
 name: Archie
 level: 3
 armor: 0
+vitality: 0
 weapons: [Longbow]
 tactics:
-  if_foe_nearby(retreat, if_prepared_for_foe(ranged_attack, prepare))
+  #if_foe_in_move_range(retreat, if_prepared_for_foe(ranged_attack, prepare))
+  if_foe_in_move_range(retreat, ranged_attack)

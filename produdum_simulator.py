@@ -4,7 +4,7 @@ import argparse
 import glob
 import os
 
-from simulator.data_loader import load_data
+from simulator.data_loader import load_data, clear_data_cache
 from simulator.simulator import Simulator
 import logging
 import tkinter as tk
@@ -21,18 +21,27 @@ iterations = args.iterations
 log_options = args.log.split(',') if args.log else []
 
 def run_simulation(actor, scenario):
+    clear_data_cache()
     wins = 0.0
     rounds = 0.0
     for i in range(iterations):
-        simulator = Simulator(scenario, options={ f"log_{s}": True for s in log_options })
+        data = load_data(scenario, directory="data/scenarios")[0]
+        idx = data['heroes'].index(actor)
+        data['heroes'][idx] = actor
+        simulator = Simulator(data, options={ f"log_{s}": True for s in log_options })
+
         simulator.run_until_done()
-        print(f"winner is {simulator.winner()}")
         if simulator.winner() == "heroes":
             wins = wins + 1.0
         rounds = rounds + simulator.round
     print(f"Success Rate: {wins/iterations}")
     print(f"Mean duration: {rounds/iterations}")
     print(f"Mean turns: {rounds*len(simulator.combatants)/iterations}")
+    for a in simulator.combatants:
+        averages = { label: a.average(label) for label in a.averages.keys() }
+        print(f"{a.name()}: {averages}")
+
+    print(30*"-")
 
 def update_replacement(optionList, optionVar, scenario):
     optionList['menu'].delete(0, 'end')

@@ -62,7 +62,8 @@ class DecisionState(ObservationsMixin, ActionsMixin):
     def skill_roll(self, overrides):
         vantage = self.resolve_attribute('vantage', overrides, 0)
         roll = self.actor.skill_roll(vantage)
-        print(f"{self.actor.name()} rolls {roll} with vantage #{vantage}")
+        self.actor.track_average("skill_roll", roll)
+        #print(f"{self.actor.name()} rolls {roll} with vantage #{vantage}")
         return roll
 
     def apply_effect(self, successes, overrides):
@@ -70,18 +71,25 @@ class DecisionState(ObservationsMixin, ActionsMixin):
         minor_effect = self.resolve_effect('minor_effect', overrides)
         major_effect = self.resolve_effect('major_effect', overrides) or minor_effect
         if successes <= 0:
-            print(f"{self.actor.name()} fails with {successes}")
+            #print(f"{self.actor.name()} fails with {successes}")
+            self.actor.track_average('major_effect', 0)
+            self.actor.track_average('minor_effect', 0)
             pass
         else:
             successes += self.resolve_attribute('successes', overrides, 0)
-            if successes < threshold and minor_effect:
-                print(f"{self.actor.name()} gets minor effect {minor_effect} with {successes}")
-                min_result = minor_effect(self)
-            elif successes >= threshold and major_effect:
-                print(f"{self.actor.name()} gets major effect {major_effect} with {successes}")
-                maj_result = major_effect(self)
+            if successes >= threshold and major_effect:
+                #print(f"{self.actor.name()} gets major effect {major_effect} with {successes}")
+                self.actor.track_average('major_effect', 1)
+                self.actor.track_average('minor_effect', 0)
+                major_effect(self)
+            elif successes > 0 and minor_effect:
+                #print(f"{self.actor.name()} gets minor effect {minor_effect} with {successes}")
+                self.actor.track_average('major_effect', 0)
+                self.actor.track_average('minor_effect', 1)
+                minor_effect(self)
             else:
-                print(f"effect(s) were missing; successes: {successes} effects: {minor_effect}/{major_effect}")
+                #print(f"effect(s) were missing; successes: {successes} effects: {minor_effect}/{major_effect}")
+                pass
         return successes - threshold
 
     def try_enhancement(self, points, effect, enhancements):
@@ -105,22 +113,44 @@ class DecisionState(ObservationsMixin, ActionsMixin):
                 enhancement_points = self.try_enhancement(enhancement_points, effect, enhancements)
 
     def implement_action(self, name, defaults):
+        self.actor.track_average(f"action.{name}", 1)
         overrides = { **defaults, **self._action_properties[name] }
         if 'enhancements' in defaults:
             overrides['enhancements'] = { **defaults.get('enhancements', {}), **overrides.get('enhancements', {}) }
 
         if 'on_start_turn' in overrides:
             overrides['on_start_turn'](self)
+
         successes = self.skill_roll(overrides)
         if successes <= 0 and 'on_fail' in overrides:
             overrides['on_fail'](self)
         enhancement_points = self.apply_effect(successes, overrides)
-        print(f"{self.actor.name()} got {successes} successes and {enhancement_points} enhancements")
+        #print(f"{self.actor.name()} got {successes} successes and {enhancement_points} enhancements")
         self.make_enhancements(enhancement_points, overrides)
+        if 'on_end_turn' in overrides:
+            overrides['on_end_turn'](self)
+        if self.actor.has_condition(ConditionType.BLEEDING):
+            self.actor.takes_damage(1)
+
         return successes > 0
 
     def wound_foe(self):
-        self.foe.takes_damage(1)
+        if self.foe:
+            self.actor.track_average("wound_foe", 1)
+            self.foe.takes_damage(1)
+        else:
+            self.actor.track_average("missing_foe", 1)
+
+    def wound_or_approach_foe(self):
+        if self.foe == None:
+            self.actor.track_average("missing_foe", 1)
+        else:
+            self.actor.move_towards_foe()
+            if self.if_foe_nearby(True, False):
+                self.actor.track_average("wound_foe", 1)
+                self.foe.takes_damage(1)
+            else:
+                self.actor.move_towards_foe()
 
     def has_melee_attack(self):
         return any(a == 'thrust_attack' or a == 'swing_attack' for a in self.actions().keys())
@@ -145,19 +175,22 @@ class DecisionState(ObservationsMixin, ActionsMixin):
         return (action.__name__, success)
 
     def take_turn(self):
-        if self.foe == None:
+        if self.foe == None or self.foe.health == 0:
             self.actor.foe = self.pick_foe()
             self.foe = self.actor.foe
 
+        expiring = self.actor.expiring_conditions()
         before = self.simulator.snapshot_state()
         (action_name, success) = self.execute_action()
         after = self.actor.simulator.snapshot_state()
         if self.simulator and self.simulator.options.get('log_action',False):
             foe_name = self.foe.name() if self.foe else 'None'
             if success:
-                print(f"{self.actor.name()}/{action_name} vs {foe_name}: " + self.simulator.determine_state_change(before, after))
+                conds = [str(v) for v in self.actor.conditions.values()]
+                print(f"{self.actor.name()}({self.actor.health}/{self.actor.vitality} {conds})/{action_name} vs {foe_name}: " + self.simulator.determine_state_change(before, after))
             else:
-                print(f"{self.actor.name()}/{action_name} vs {foe_name}: failed")
+                print(f"{self.actor.name()}({self.actor.conditions})/{action_name} vs {foe_name}: failed")
+        self.actor.expire_conditions(expiring)
 
     def set_tactics(self, tactics):
         import re

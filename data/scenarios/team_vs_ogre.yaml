@@ -2,7 +2,7 @@
 name: "Team of 2 Heroes vs 5 Goblins"
 positions:
   heroes: 0
-  villains: 1
+  villains: 12
 heroes:
   - Brutus
   - Archie

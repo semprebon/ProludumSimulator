@@ -45,3 +45,6 @@ def load_data(files, filter=None, root=__file__, directory="data"):
         records = [ item for item in records if filter(item) ]
 
     return records
+
+def clear_data_cache():
+    load_data_cache.clear()

@@ -2,8 +2,8 @@ from simulator.condition import ConditionType, Condition
 
 RECOVER_FROM_CONDITION_EFFECT = lambda ds: ds.actor.recover_from_condition()
 MOVE_TOWARDS_EFFECT = lambda ds: ds.actor.move_towards_foe()
-WOUND_FOE_EFFECT = lambda ds: ds.foe.takes_damage(1) if ds.foe else None
-WOUND_OR_APPROACH_EFFECT = lambda ds: (ds.if_foe_nearby(WOUND_FOE_EFFECT, MOVE_TOWARDS_EFFECT)(ds))
+WOUND_FOE_EFFECT = lambda ds: ds.wound_foe()
+WOUND_OR_APPROACH_EFFECT = lambda ds: ds.wound_or_approach_foe()
 MOVE_AWAY_EFFECT = lambda ds: ds.actor.move_away_from_foe()
 
 """ A collection of support methods for creating effects more complex than
@@ -33,18 +33,19 @@ def actor_condition_modifier(cond, value):
 
 def foe_condition_modifier(cond, value):
     if cond.directed:
-        return lambda ds: value if ds.foe.has_condition(cond, ds.actor) else 0
+        return lambda ds: value if ds.foe and ds.foe.has_condition(cond, ds.actor) else 0
     else:
-        return lambda ds: value if ds.foe.has_condition(cond, None) else 0
+        return lambda ds: value if ds.foe and ds.foe.has_condition(cond, None) else 0
 
 def multimove(*args):
     return lambda ds: args[0](ds) if len(args) == 1 else args[0](ds) and multimove(*args[1:])
 
 def attack_defaults():
-    return {
+    return ATTACK_DEFAULTS
+
+ATTACK_DEFAULTS = {
         "vantage": actor_condition_modifier(ConditionType.HINDERED, 1),
-        "on_start_turn": lambda ds: ds.foe.takes_damage(1) if ds.foe.has_condition(ConditionType.BLEEDING) else None,
-        "threshold": lambda ds: 2 + foe_condition_modifier(ConditionType.STAGGERED, 1)(ds),
+        "threshold": lambda ds: 2 - foe_condition_modifier(ConditionType.STAGGERED, 1)(ds),
         "major_effect": WOUND_FOE_EFFECT
     }
 
@@ -77,28 +78,41 @@ class ActionsMixin:
 
     def approach(self):
         """move toward foe"""
-        print("approach called")
+        MOVE_TOWARDS_EFFECT(self)
+        MOVE_TOWARDS_EFFECT(self)
         defaults = {
             'threshold': 1,
             'minor_effect': MOVE_TOWARDS_EFFECT,
-            'major_effect': WOUND_OR_APPROACH_EFFECT,
+            'major_effect': None,
             'enhancements': { RECOVER_FROM_CONDITION_EFFECT: 1 } }
         return self.implement_action('approach', defaults)
+
+    def charge(self):
+        """charge at foe"""
+        if self.actor.distance_to(self.foe) > 1:
+            return self.approach()
+        defaults = { **ATTACK_DEFAULTS, **{ 'minor_effect': MOVE_TOWARDS_EFFECT, 'major_effect': WOUND_OR_APPROACH_EFFECT } }
 
     def wait(self):
         """do nothing"""
         return True
 
     # Weapon actions
+    def melee_actions(self, action):
+        if self.if_foe_in_move_range():
+            action();
+        else:
+            self.approach()
+
     def thrust_attack(self):
-        if self.if_foe_nearby(True, False):
-            return self.implement_action('thrust_attack', attack_defaults())
+        if self.if_foe_in_move_range(True, False):
+            return self.implement_action('thrust_attack', ATTACK_DEFAULTS)
         else:
             return self.approach()
 
     def swing_attack(self):
-        if self.if_foe_nearby(True, False):
-            return self.implement_action('swing_attack', attack_defaults())
+        if self.if_foe_in_move_range(True, False):
+            return self.implement_action('swing_attack', ATTACK_DEFAULTS)
         else:
             return self.approach()
 
@@ -111,7 +125,7 @@ class ActionsMixin:
 
     def defensive_attack(self):
         if self.foe_nearby(True, False):
-            return self.implement_action('defensive_attack', attack_defaults())
+            return self.implement_action('defensive_attack', ATTACK_DEFAULTS)
         else:
             return self.approach()
 
@@ -120,11 +134,14 @@ class ActionsMixin:
             'threshold': 1,
             'minor_effect': apply_condition_to_actor_effect(ConditionType.PREPARED_FOR),
             'major_effect': None }
-        return self.implement_action('prepare', defaults)
+        if self.foe:
+            return self.implement_action('prepare', defaults)
+        else:
+            return self.wait()
 
     def bite_attack(self):
         if self.foe_nearby(True, False):
-            return self.implement_action('bite_attack', attack_defaults())
+            return self.implement_action('bite_attack', ATTACK_DEFAULTS)
         else:
             return self.approach()
 
@@ -138,17 +155,17 @@ class ActionsMixin:
 
     def unarmed_attack(self):
         if self.foe_nearby(True, False):
-            return self.implement_action('unarmed_attack', attack_defaults())
+            return self.implement_action('unarmed_attack', ATTACK_DEFAULTS)
         else:
             return self.approach()
 
     def kick_attack(self):
         if self.foe_nearby(True, False):
-            return self.implement_action('kick_attack', attack_defaults())
+            return self.implement_action('kick_attack', ATTACK_DEFAULTS)
         else:
             return self.approach()
 
     def secondary_attack(self):
-        return self.implement_action('secondary_attack', attack_defaults())
+        return self.implement_action('secondary_attack', ATTACK_DEFAULTS)
 
 STANDARD_ACTIONS = [ "recover", "retreat", "approach", "wait" ]

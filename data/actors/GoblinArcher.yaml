@@ -3,5 +3,6 @@ name: Goblin Archer
 level: 1
 armor: 0
 weapons: [Longbow]
+speed: 5
 tactics:
-  if_foe_nearby(retreat, if_prepared_for_foe(ranged_attack, prepare))
+  if_foe_in_move_range(retreat, if_prepared_for_foe(ranged_attack, prepare))

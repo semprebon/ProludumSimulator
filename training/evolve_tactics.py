@@ -8,6 +8,8 @@ from deap import algorithms
 
 # This is a subclass of Actor that allows the decisions of the actor to be
 # made by an evolved tactics function
+from deap.tools import uniform_reference_points, selNSGA3WithMemory
+
 from simulator.decision_state import DecisionState
 from simulator.simulator import Simulator
 
@@ -44,7 +46,7 @@ class EvolverSimulator(Simulator):
 
 class ActorTacticsEvolver:
 
-    def __init__(self, actor_name, scenarios, iterations=100):
+    def __init__(self, actor_name, scenarios, iterations=10):
         self.actor_name = actor_name
         self.scenarios = scenarios
         self.iterations = iterations
@@ -58,11 +60,11 @@ class ActorTacticsEvolver:
             simulator = EvolverSimulator(self.actor_name, individual, self.pset, scenario)
 
             simulator.run_until_done()
-            if len(simulator.foes_of(simulator.actor)) == 0:
+            if simulator.winner() == "heroes":
                 wins = wins + 1
             rounds = rounds + simulator.round
             wounds = wounds + simulator.actor.data['level'] - simulator.actor.health
-        result = wins / self.iterations, rounds / self.iterations
+        result = (wins / float(self.iterations),)
         return result
 
     def actor(self):
@@ -71,7 +73,7 @@ class ActorTacticsEvolver:
 
     def setup(self, toolbox):
         # Define fitness function
-        creator.create("FitnessMax", base.Fitness, weights=(1.0,-1.0/6.0))
+        creator.create("FitnessMax", base.Fitness, weights=(1.0,))
 
         # Define individual
         decision_state = DecisionState(self.actor())
@@ -96,7 +98,10 @@ class ActorTacticsEvolver:
 
         # define evolution
         toolbox.register("evaluate", self.evaluate)
-        toolbox.register("select", tools.selTournament, tournsize=7)
+        toolbox.register("select", tools.selTournament, tournsize=30)
+        #ref_points = uniform_reference_points(nobj=3, p=12)
+        #toolbox.register("select", selNSGA3WithMemory(ref_points))
+
         toolbox.register("mate", gp.cxOnePoint)
         toolbox.register("expr_mut", gp.genFull, min_=0, max_=1, pset=self.pset)
         toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=self.pset)
@@ -104,7 +109,7 @@ class ActorTacticsEvolver:
     def run(self):
         toolbox = base.Toolbox()
         self.setup(toolbox)
-        pop = toolbox.population(n=100)
+        pop = toolbox.population(n=200)
         hof = tools.HallOfFame(5)
 
         stats = tools.Statistics(lambda ind: ind.fitness.values)
@@ -113,5 +118,5 @@ class ActorTacticsEvolver:
         stats.register("min", numpy.min)
         stats.register("max", numpy.max)
 
-        algorithms.eaSimple(pop, toolbox, 0.5, 0.2, 50, stats, halloffame=hof)
+        algorithms.eaSimple(pop, toolbox, 0.5, 0.2, 100, stats, halloffame=hof)
         return hof
