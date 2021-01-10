@@ -9,7 +9,7 @@ heroes:
 villains:
   - GoblinWarrior
   - GoblinWarrior
-#  - GoblinWarrior
-#  - GoblinArcher
-#  - GoblinArcher
+  - GoblinWarrior
+  - GoblinArcher
+  - GoblinArcher
 #  - GoblinArcher

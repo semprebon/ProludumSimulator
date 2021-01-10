@@ -45,6 +45,7 @@ def attack_defaults():
 
 ATTACK_DEFAULTS = {
         "vantage": actor_condition_modifier(ConditionType.HINDERED, 1),
+        "successes":  foe_condition_modifier(ConditionType.STAGGERED, 1),
         "threshold": lambda ds: 2 - foe_condition_modifier(ConditionType.STAGGERED, 1)(ds),
         "major_effect": WOUND_FOE_EFFECT
     }
@@ -151,7 +152,10 @@ class ActionsMixin:
             'threshold': 2,
             'minor_effect': condition_with_escalation(ConditionType.HINDERED, WOUND_FOE_EFFECT),
             'major_effect': WOUND_FOE_EFFECT }
-        return self.implement_action('ranged_attack', defaults)
+        if self.foe:
+            return self.implement_action('ranged_attack', defaults)
+        else:
+            self.recover()
 
     def unarmed_attack(self):
         if self.foe_nearby(True, False):

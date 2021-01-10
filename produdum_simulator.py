@@ -4,6 +4,7 @@ import argparse
 import glob
 import os
 
+import profile
 from simulator.data_loader import load_data, clear_data_cache
 from simulator.simulator import Simulator
 import logging
@@ -12,8 +13,11 @@ import tkinter as tk
 logging.basicConfig(filename="simulation.log", level=logging.INFO)
 parser = argparse.ArgumentParser()
 parser.add_argument("--iterations", "-i", default="1", help="number of iterations", type=int)
-parser.add_argument("--scenario", "-s", default="brutus_vs_goblins", help="scenario file", type=str)
+parser.add_argument("--scenario", "-s", default="team_vs_goblins", help="scenario file", type=str)
 parser.add_argument("--log", "-L", help="log options: action", type=str)
+parser.add_argument("--ui", "-U", action="store_true", help="use interactive ui", default=False)
+parser.add_argument("--actor", "-a", help="actor", default="Brutus", type=str)
+parser.add_argument("--profile", "-p", action="store_true", help="profile run", default=False)
 
 args = parser.parse_args()
 iterations = args.iterations
@@ -79,8 +83,14 @@ def load_names(dir):
     return [os.path.splitext(os.path.basename(f))[0] for f in glob.glob(dir + "/*.yaml")]
 
 if __name__ == '__main__':
-    root = tk.Tk()
-    actors = load_names("data/actors")
-    scenarios = load_names("data/scenarios")
-    form(root, actors, scenarios)
-    tk.mainloop()
+    if args.ui:
+        root = tk.Tk()
+        actors = load_names("data/actors")
+        scenarios = load_names("data/scenarios")
+        form(root, actors, scenarios)
+        tk.mainloop()
+    else:
+        if args.profile:
+            profile.run(f"run_simulation('{args.actor}', '{args.scenario}')")
+        else:
+            run_simulation(args.actor, args.scenario)

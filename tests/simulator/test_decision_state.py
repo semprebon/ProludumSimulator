@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import Mock
 
 from simulator import weapons
-from simulator.actions_mixin import ATTACK_DEFAULTS
+from simulator.actions_mixin import attack_defaults
 from simulator.actor import Actor
 from simulator.condition import ConditionType
 from simulator.decision_state import DecisionState
@@ -72,21 +72,26 @@ class TestStaggeredIncreasesSuccess(unittest.TestCase):
         self.simulator = Simulator({ 'heroes': [], 'villains': [] })
         self.actor = Actor({'weapons': ['Knife'] , 'tactics': 'thrust_attack'},
                   'Heroes', self.simulator)
-        self.foe = Actor({'weapons': ['Knife'] , 'tactics': 'thrust_attack'},
+        self.foe = Actor({'weapons': ['Knife'] , 'level': 2, 'tactics': 'thrust_attack'},
                   'Villains', self.simulator)
         self.actor.foe = self.foe
-
-    def mock_dice_class(self, roll):
-        dice = Mock()
-        dice.roll.return_value = roll
-        return lambda cls, count: dice
 
     def test_foe_staggered_with_1_success(self):
         self.actor.dice_pool_class = FixedDicePool
         self.foe.add_condition(Condition(ConditionType.STAGGERED))
-        starting_health = self.foe.health
         decision_state = DecisionState(self.actor)
+
         FixedDicePool.roll_value = 1
         decision_state.take_turn()
-        self.assertEqual(-1, self.foe.health - starting_health)
 
+        self.assertEqual(1, self.foe.health)
+
+    def test_foe_staggered_with_2_successes(self):
+        self.actor.dice_pool_class = FixedDicePool
+        self.foe.add_condition(Condition(ConditionType.STAGGERED))
+        decision_state = DecisionState(self.actor)
+
+        FixedDicePool.roll_value = [2,1]
+        decision_state.take_turn()
+
+        self.assertEqual(0, self.foe.health)
